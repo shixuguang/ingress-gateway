@@ -1,0 +1,95 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: zen-route
+  namespace: zen
+spec:
+  hostnames:
+  - zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: zen-gateway
+    namespace: projectcontour
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: platform-identity-provider
+      port: 4300
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /idprovider/
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: platform-identity-provider
+      port: 4300
+    matches:
+    - path:
+        type: PathPrefix
+        value: /v1/auth
+    - path:
+        type: PathPrefix
+        value: /login
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: platform-auth-service
+      port: 9443
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /idauth/
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: platform-auth-service
+      port: 9443
+    matches:
+    - path:
+        type: PathPrefix
+        value: /oidc
+    - path:
+        type: PathPrefix
+        value: /ibm/saml20/defaultSP
+    - path:
+        type: PathPrefix
+        value: /ibm/api/social-login
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: platform-identity-management
+      port: 4500
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          replacePrefixMatch: /
+          type: ReplacePrefixMatch
+    matches:
+    - path:
+        type: PathPrefix
+        value: /idmgmt/
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: ibm-nginx-svc
+      port: 443
+    matches:
+    - path:
+        type: PathPrefix
+        value: /

@@ -1,0 +1,17 @@
+kind: Gateway
+apiVersion: gateway.networking.k8s.io/v1
+metadata:
+  name: zen-gateway
+  namespace: projectcontour
+spec:
+  gatewayClassName: contour
+  listeners:
+  - name: https
+    port: 8443
+    protocol: HTTPS
+    hostname: zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: ocp4732
