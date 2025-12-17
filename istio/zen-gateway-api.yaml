@@ -1,0 +1,173 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: zen-gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: https
+    port: 8443
+    protocol: HTTPS
+    hostname: zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: ocp4732
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zen-cpd-tls-ecdh-curves
+  namespace: zen # Use the namespace where your Istio configuration lives
+spec:
+  workloadSelector:
+    labels:
+      gateway.networking.k8s.io/gateway-name: zen-gateway
+  configPatches:
+    - applyTo: CLUSTER
+      match: {} # An empty match applies to all clusters on this workload
+      patch:
+        operation: MERGE
+        value:
+          transportSocket:
+            name: "envoy.transport_sockets.tls"
+            typedConfig:
+              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
+              commonTlsContext:
+                tlsParams:
+                  ecdhCurves: ["X25519", "P-256", "P-384"]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: zen-route
+spec:
+  parentRefs:
+  - name: zen-gateway
+  hostnames:
+  - zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+  rules:
+  # /idprovider/  → platform-identity-provider (rewrite /)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /idprovider/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: platform-identity-provider
+      port: 4300
+  # /v1/auth OR /login → platform-identity-provider
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /v1/auth
+    - path:
+        type: PathPrefix
+        value: /login
+    backendRefs:
+    - name: platform-identity-provider
+      port: 4300
+  # /idauth/ → platform-auth-service (rewrite /)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /idauth/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: platform-auth-service
+      port: 9443
+  # /oidc, /ibm/saml20/defaultSP, /ibm/api/social-login
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /oidc
+    - path:
+        type: PathPrefix
+        value: /ibm/saml20/defaultSP
+    - path:
+        type: PathPrefix
+        value: /ibm/api/social-login
+    backendRefs:
+    - name: platform-auth-service
+      port: 9443
+  # /idmgmt/ → platform-identity-management (rewrite /)
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /idmgmt/
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - name: platform-identity-management
+      port: 4500
+  # catch-all → ibm-nginx-svc
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: ibm-nginx-svc
+      port: 443
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: ibm-nginx-svc
+spec:
+  host: ibm-nginx-svc
+  trafficPolicy:
+    tls:
+      mode: SIMPLE               # Envoy makes HTTPS request to backend
+      sni: ibm-nginx-svc          # Optional, if backend expects specific SNI
+      credentialName: ocp4732-nginx-ca
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-identity-provider
+spec:
+  host: platform-identity-provider
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam-ca
+      sni: platform-identity-provider
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-auth-service
+spec:
+  host: platform-auth-service
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam-ca
+      sni: platform-auth-service
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-identity-management
+spec:
+  host: platform-identity-management
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam-ca
+      sni: platform-identity-management

@@ -1,0 +1,226 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+spec:
+  type: NodePort 
+  selector:
+    istio: ingressgateway
+  ports:
+  - name: https
+    port: 443
+    nodePort: 30443
+    targetPort: 8443
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  template:
+    metadata:
+      annotations:
+        # Select the gateway injection template (rather than the default sidecar template)
+        inject.istio.io/templates: gateway
+      labels:
+        # Set a unique label for the gateway. This is required to ensure Gateways can select this workload
+        istio: ingressgateway
+        # Enable gateway injection. If connecting to a revisioned control plane, replace with "istio.io/rev: revision-name"
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+      - name: istio-proxy
+        image: auto # The image will automatically update each time the pod starts.
+
+---
+# Set up roles to allow reading credentials for TLS
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: istio-ingressgateway-sds
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: istio-ingressgateway-sds
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: istio-ingressgateway-sds
+subjects:
+- kind: ServiceAccount
+  name: default
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zen-cpd-tls-ecdh-curves
+  namespace: zen # Use the namespace where your Istio configuration lives
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: CLUSTER
+      match: {} # An empty match applies to all clusters on this workload
+      patch:
+        operation: MERGE
+        value:
+          transportSocket:
+            name: "envoy.transport_sockets.tls"
+            typedConfig:
+              "@type": "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext"
+              commonTlsContext:
+                tlsParams:
+                  ecdhCurves: ["X25519", "P-256", "P-384"]
+---
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: zen-gateway
+spec:
+  selector:
+    istio: ingressgateway # use istio default controller
+  servers:
+  - port:
+      number: 8443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: zen-route
+spec:
+  hosts:
+  - zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+  gateways:
+  - zen-gateway
+  http:
+  - name: "platform-identity-provider"
+    match:
+    - uri:
+        prefix: "/idprovider/"
+    rewrite:
+      uri: "/"
+    route:
+    - destination:
+        host: platform-identity-provider
+        port:
+          number: 4300
+  - name: "platform-identity-provider2"
+    match:
+    - uri:
+        prefix: "/v1/auth"
+    - uri:
+        prefix: "/login"
+    route:
+    - destination:
+        host: platform-identity-provider
+        port:
+          number: 4300
+  - name: "platform-auth-service"
+    match:
+    - uri:
+        prefix: "/idauth/"
+    rewrite:
+      uri: "/"
+    route:
+    - destination:
+        host: platform-auth-service
+        port:
+          number: 9443
+  - name: "platform-auth-service2"
+    match:
+    - uri:
+        prefix: "/oidc"
+    - uri:
+        prefix: "/ibm/saml20/defaultSP"
+    - uri:
+        prefix: "/ibm/api/social-login"
+    route:
+    - destination:
+        host: platform-auth-service
+        port:
+          number: 9443
+  - name: "platform-identity-managemen"
+    match:
+    - uri:
+        prefix: "/idmgmt/"
+    rewrite:
+      uri: "/"
+    route:
+    - destination:
+        host: platform-identity-management
+        port:
+          number: 4500
+  - name: "zen"
+    match:
+    - uri:
+        prefix: "/"
+    route:
+    - destination:
+        host: ibm-nginx-svc
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: zen-service
+spec:
+  host: ibm-nginx-svc
+  trafficPolicy:
+    tls:
+      mode: SIMPLE               # Envoy makes HTTPS request to backend
+      sni: ibm-nginx-svc          # Optional, if backend expects specific SNI
+      credentialName: ocp4732
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-identity-provider
+spec:
+  host: platform-identity-provider
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam
+      sni: platform-identity-provider
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-auth-service
+spec:
+  host: platform-auth-service
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam
+      sni: platform-auth-service
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: platform-identity-management
+spec:
+  host: platform-identity-management
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      credentialName: ocp4732-iam
+      sni: platform-identity-management
+

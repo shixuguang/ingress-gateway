@@ -1,0 +1,63 @@
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: ibm-nginx-svc
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: ibm-nginx-svc
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: Secret
+      name: ocp4732-nginx-ca
+    hostname: ibm-nginx-svc
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: platform-auth-service
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: platform-auth-service
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: Secret
+      name: ocp4732-iam-ca
+    hostname: platform-auth-service
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: platform-identity-management
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: platform-identity-management
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: Secret
+      name: ocp4732-iam-ca
+    hostname: platform-identity-management
+---
+apiVersion: gateway.networking.k8s.io/v1alpha3
+kind: BackendTLSPolicy
+metadata:
+  name: platform-identity-provider
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: platform-identity-provider
+  validation:
+    caCertificateRefs:
+    - group: ""
+      kind: Secret
+      name: ocp4732-iam-ca
+    hostname: platform-identity-provider

@@ -1,0 +1,56 @@
+
+#### Setup zen route with gateway:
+
+1. install openshift istio https://docs.redhat.com/en/documentation/red_hat_openshift_service_mesh/3.1/html/installing/ossm-installing-service-mesh  
+   we use istio for traffic management only, doesn't matter which istio mode to use, by default, istio installed as side car injection mode  
+2. add the following lables to zen namespace:  
+  istio-discovery: enabled  
+  ~~ istio-injection: enabled ~~ # this controls side car injection for every pod  
+3. setup haproxy routing to backend on port 30443 in infra node
+4. use zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443 to route to zen
+5. `oc apply -f ca-certs.yaml` expose ca certs of nginx and iam services
+6a. `oc apply -f zen-gateway-api.yaml -n zen`  
+  the following resources deployed:
+  - Gateway.gateway.networking.k8s.io/v1 for zen, gateway instance and service created
+  - EnvoyFilter.networking.istio.io/v1alpha3 to enable `ssl_ecdh_curve secp384r1` which is a requirement for zen, by default this is not supported by openshift istio/envoy
+  - HTTPRoutes.gateway.networking.k8s.io/v1 for zen and iam
+  - DestinationRule.networking.istio.io/v1 for zen and iam (see comments)
+  <!-- 
+    * as of ocp4.19 support of Gateway API is 1.2.1, in which BackendTLSPolicy is experimental feature v1alpha2, openshift istio does not support experimental feature 
+    * BackendTLSPolicy.networking.k8s.io is officially supported by kubernetes as of Gateway API 1.4.0
+    * as of ocp4.19 openshift manages Gateway API CRDs on openshift clusters
+  -->
+6b. `oc apply -f zen-gateway.yaml -n zen`
+    this will deploy all `istio.io` properitery resources including manually self-managed gateway instance and service, step 7 can be skipped in this case  
+7. `oc edit svc zen-gateway-istio` and modify NodePort for https to 30443
+8. `oc edit cm - ibmcloud-cluster-info`  
+  ```
+    data:
+      cluster_address: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
+      cluster_address_auth: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
+      cluster_endpoint: https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
+  ```
+9. `oc edit cm platform-auth-idp` 
+  ```
+    data:
+      MASTER_HOST: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443  
+  ```
+10. `oc edit cm ibm-cpp-config` for iam-config-job
+  ```
+    data:
+      domain_name: apps.ocp4732.cp.fyre.ibm.com:30443
+      kubernetes_cluster_type: cncf
+  ```
+11. or `oc edit client zenclient-zen`:  
+  ```
+    spec:
+      oidcLibertyClient:
+        post_logout_redirect_uris:
+        - https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443/auth/doLogout
+        redirect_uris:
+        - https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443/auth/login/oidc/callback
+        trusted_uri_prefixes:
+        - https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
+  ```
+  
+zen console should be available at https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
