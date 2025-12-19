@@ -2,13 +2,14 @@
 ingressRoute:
   dashboard:
     enabled: true
-    matchRule: Host(`zen-cpd.apps.ocp4732.cp.fyre.ibm.com`)
+    matchRule: Host(`traefik.apps.ocp4732.cp.fyre.ibm.com`)
     entryPoints:
       - web
 providers:
   kubernetesGateway:
     enabled: true
 gateway:
+  name: "zen-gateway"
   listeners:
     web:
       namespacePolicy:
@@ -32,7 +33,6 @@ gateway:
       mode: Terminate
 service:
   type: NodePort
-
 #logs:
 #  general:
 #    level: DEBUG

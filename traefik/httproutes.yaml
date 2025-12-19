@@ -1,3 +1,4 @@
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -9,7 +10,31 @@ spec:
   parentRefs:
   - group: gateway.networking.k8s.io
     kind: Gateway
-    name: traefik-gateway
+    name: zen-gateway
+    namespace: traefik
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: ibm-nginx-svc
+      port: 443
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: iam-route
+  namespace: zen
+spec:
+  hostnames:
+  - zen-cpd.apps.ocp4732.cp.fyre.ibm.com
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: zen-gateway
     namespace: traefik
   rules:
   - backendRefs:
@@ -84,12 +109,3 @@ spec:
     - path:
         type: PathPrefix
         value: /idmgmt/
-  - backendRefs:
-    - group: ""
-      kind: Service
-      name: ibm-nginx-svc
-      port: 443
-    matches:
-    - path:
-        type: PathPrefix
-        value: /
