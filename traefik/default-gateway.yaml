@@ -1,0 +1,26 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  annotations:
+    meta.helm.sh/release-name: traefik
+    meta.helm.sh/release-namespace: traefik
+  creationTimestamp: "2025-12-19T02:28:41Z"
+  generation: 1
+  labels:
+    app.kubernetes.io/instance: traefik-traefik
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: traefik
+    helm.sh/chart: traefik-37.4.0
+  name: traffic-gateway
+  namespace: traefik
+  resourceVersion: "1216904973"
+  uid: 4ce43237-bdc8-49b6-9a4b-6fe6428fe851
+spec:
+  gatewayClassName: traefik
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: All
+    name: web
+    port: 8000
+    protocol: HTTP

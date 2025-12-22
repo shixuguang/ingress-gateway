@@ -11,7 +11,6 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: zen-gateway
-    namespace: traefik
   rules:
   - backendRefs:
     - group: ""
@@ -35,7 +34,6 @@ spec:
   - group: gateway.networking.k8s.io
     kind: Gateway
     name: zen-gateway
-    namespace: traefik
   rules:
   - backendRefs:
     - group: ""
