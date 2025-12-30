@@ -20,8 +20,24 @@
 
 5. `oc apply -f httproutes.yaml -n zen`  
 6. `oc apply -f backendtlspolicies.yaml -n zen`
-7. iam installed with `spec.authentication.config.ingress.hostname: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443` without route creation
-8. modify zen client object with redirect url: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
+7. set `HOST_INJECTION_CHECK_ENABLED: false`, nginx server checking doesn't work with port number
+8. iam installed with `spec.authentication.config.ingress.hostname: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443` without route creation, iam also watch for url_prefix change
+9. modify zen client object with redirect url: zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443
 
 zen console is available at: https://zen-cpd.apps.ocp4732.cp.fyre.ibm.com:30443  
 traefik dashboard is available at: https://traefik.apps.ocp4732.cp.fyre.ibm.com:31836/dashboard/
+
+
+note: 
+1. for csv install instance admin need to apply:
+    export instanceNs=zen
+    export operatorNs=cpd
+    oc apply -n $instanceNs -f zen-gateway-admin-rbac-csv.yaml
+
+2. apply this after show-mini-rabc:
+    export instanceNs=zen
+    export operatorNs=cpd
+    oc apply -n $instanceNs -f zen-gateway-admin-rbac-csv.yaml
+
+    tenant_user=test-ns-admin
+    oc adm policy add-role-to-user zen-gateway-admin-role $tenant_user --namespace=$operatorNs --role-namespace=$operatorNs

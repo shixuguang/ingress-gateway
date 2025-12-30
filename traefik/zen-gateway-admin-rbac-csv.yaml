@@ -1,0 +1,37 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zen-gateway-admin-role
+rules:
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  - httproutes
+  - backendtlspolicies
+  verbs:
+  - create
+  - get
+  - delete
+  - watch
+  - update
+  - list
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zen-gateway-adm-rb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: zen-gateway-admin-role
+subjects:
+- kind: ServiceAccount
+  name: ibm-zen-operator-serviceaccount
+  namespace: $OperatorNs
+- kind: ServiceAccount
+  name: ibm-namespace-scope-operator
+  namespace: $OperatorNs
+      

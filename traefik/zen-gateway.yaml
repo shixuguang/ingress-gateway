@@ -7,7 +7,7 @@ spec:
   listeners:
   - allowedRoutes:
       namespaces:
-        from: zen
+        from: Same
     name: websecure
     port: 8443
     protocol: HTTPS
@@ -15,5 +15,5 @@ spec:
       certificateRefs:
       - group: ""
         kind: Secret
-        name: ocp4732
+        name: zen-gateway-cert-secret
       mode: Terminate
