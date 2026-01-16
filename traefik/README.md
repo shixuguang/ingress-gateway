@@ -40,4 +40,4 @@ note:
     oc apply -n $instanceNs -f zen-gateway-admin-rbac-csv.yaml
 
     tenant_user=test-ns-admin
-    oc adm policy add-role-to-user zen-gateway-admin-role $tenant_user --namespace=$operatorNs --role-namespace=$operatorNs
+    oc adm policy add-role-to-user zen-gateway-admin-role $tenant_user --namespace=$instanceNs --role-namespace=$instanceNs 
